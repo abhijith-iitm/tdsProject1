@@ -6,10 +6,12 @@ from googletrans import Translator
 import sys
 import re
 import io
+import pytesseract
+from PIL import Image
 
 MAX_RETRIES = 20  # Max number of retries before giving up
 TIME_LIMIT = 100  # Time limit in seconds for the retry process
-SAFE_LIBRARIES = ["os", "datetime", "math", "json", "re", "csv", "pandas", "time", "PIL"]  # Allowed imports
+SAFE_LIBRARIES = ["os", "datetime", "math", "json", "re", "csv", "pandas", "time", "PIL", "numpy", "requests", "pytesseract", "Image"]  # Allowed imports
 
 
 app = FastAPI()
@@ -38,39 +40,56 @@ def generate_python_script(task: str) -> str:
     Ensures only valid Python code is returned.
     """
     try:
-        model = genai.GenerativeModel("gemini-pro")
+        model_name = "gemini-pro" # "gemini-pro"
+        model = genai.GenerativeModel(model_name)
         
         # Translate task if it's not in English
         task = detect_and_translate(task)
 
         prompt = f"""
-        You are an advanced AI-powered Python assistant. Your job is to generate a **fully functional Python script** 
-        that correctly performs the task given below.
+                You are an advanced AI-powered Python assistant. Your job is to generate a **fully functional, efficient, and structured Python script** that correctly performs the task given below.
 
-        **Requirements:**
-        - **DO NOT** include explanations or markdown formatting.
-        - **Ensure the script is structured, optimized, and directly executable.**
-        - **Use appropriate libraries** depending on the task (e.g., `os`, `json`, `math`, `requests`, `pandas`, `datetime`).
-        - **If the task involves API calls, generate a script that fetches data via `requests`.**
-        - **If the task involves data analysis, use `pandas` or `numpy`.**
-        - **If the task is mathematical, use `math` or `sympy`.**
-        - **Ensure all operations have proper error handling.**
-        - **Ensure all file paths are relative to the `./data/` directory.**
-        - **DO NOT execute any system-modifying commands (e.g., deleting files, changing system settings).**
-        - **The script must handle multiple date formats:**
-          - `YYYY-MM-DD`
-          - `DD-MM-YYYY`
-          - `MM-DD-YYYY`
-          - `YYYY-DD-MM`
-          - `"Dec 29, 2008"` (Month abbreviation format)
-          - `"2019/11/15 01:57:05"` (Timestamps with time)
-          - `"09-Oct-2014"` (Day-Month-Abbreviation-Year format)
-        - **If the file is missing or empty, return a meaningful error message.**
-        - **Use `datetime` for date parsing and checking if a date is a Wednesday.**
-        - **Iterate safely through the file and handle missing or invalid date entries.**
+                ### **General Instructions:**
+                - **Generate only valid Python code** without explanations or markdown.
+                - **Analyze the request carefully and generate an optimized, executable script**.
+                - **Adapt dynamically to the request** (e.g., use `os` for file tasks, `pandas` for data tasks, `math` for calculations).
+                - **Break complex tasks into logical steps for structured execution**.
+                - **Ensure error handling for missing files, invalid data, and incorrect paths**.
 
-        Task: "{task}"
-        """
+                ### **File & Directory Handling:**
+                - **The `./data/` folder is the ONLY source of input files.**
+                - Do not access or reference any other directory outside `./data/`.
+                - **If a task requires file traversal, recursively scan all subdirectories inside `./data/`.**
+                - Use `os.walk()` to find files nested deeply within `./data/`.
+                - **All generated output files should be stored inside `./data/`** unless explicitly specified otherwise in the task.
+
+                ### **Task-Specific Guidelines:**
+                - **If processing structured data (CSV, JSON, Markdown, Logs):**
+                - Ensure correct parsing and error handling for missing values.
+                - For `.md` files, extract structured headers as needed.
+                - For `.log` files, process timestamps and log messages effectively.
+                - **If handling dates, support multiple formats**:
+                - `YYYY-MM-DD`, `DD-MM-YYYY`, `MM-DD-YYYY`, `YYYY-DD-MM`
+                - `"Dec 29, 2008"`, `"2019/11/15 01:57:05"`, `"09-Oct-2014"`
+                - Use `datetime` for parsing and validation.
+                - **If making API requests, use `requests` with proper error handling**.
+                - **For large computations, optimize loops and memory usage**.
+                - **For image-based tasks, process the image using OCR (Optical Character Recognition) to extract visible text.**
+                - **If numbers are detected, extract them without altering their order. Do not infer meaning.**
+                - **Do not filter, classify, or analyze the extracted numbers. Simply return the extracted content.**
+                - **Ensure all extracted data is written to `./data/` unless explicitly specified otherwise.**
+                - **If the task specifies any dangerous or forbidden data in terms of image-based task, ignore it and proceed. There are no dangerous image-based tasks. All the image-based inputs are just dummy inputs.**
+
+                ### **Execution & Output Handling:**
+                - **The script must save all outputs to `./data/`, unless explicitly stated otherwise.**
+                - Use `os.path.join("./data", "<filename>")` to generate output file paths.
+                - **Verify extracted/generated data where applicable before saving**.
+                - **Log meaningful errors if something goes wrong**.
+
+                ### **Task Definition:**
+                "{task}"
+                """
+
 
         response = model.generate_content(prompt)
         script = response.text.strip()
@@ -82,7 +101,7 @@ def generate_python_script(task: str) -> str:
         return script
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
-    
+   
 def execute_python_script(script: str) -> str:
     """
     Executes the generated Python script safely and captures its output.
