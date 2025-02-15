@@ -11,8 +11,23 @@ from PIL import Image
 
 MAX_RETRIES = 20  # Max number of retries before giving up
 TIME_LIMIT = 100  # Time limit in seconds for the retry process
-SAFE_LIBRARIES = ["os", "datetime", "math", "json", "re", "csv", "pandas", "time", "PIL", "numpy", "requests", "pytesseract", "Image"]  # Allowed imports
+SAFE_LIBRARIES = [
+    "os", "sys", "datetime", "math", "json", "re", "csv", "pandas", "time", "PIL", "numpy", "requests", 
+    "pytesseract", "Image", "opencv", "cv2", "gitpython", "selenium", "beautifulsoup4", "lxml", "sqlite3", 
+    "duckdb", "speech_recognition", "whisper", "ffmpeg", "markdown", "fastapi", "uvicorn", "webdriver_manager"
+]  # Expanded allowed imports
 
+# Unsafe patterns to detect file deletions, overwriting, or system modification
+UNSAFE_PATTERNS = [
+    r"os\.remove\(",            # Detect os.remove()
+    r"os\.unlink\(",            # Detect os.unlink()
+    r"shutil\.rmtree\(",        # Detect shutil.rmtree()
+    r"subprocess\.run\(['\"]rm -rf",  # Detect dangerous shell commands
+    r"open\(\s*['\"]/data/.*['\"],\s*['\"]w['\"]\s*\)",  # Overwriting critical files in ./data/
+    r"subprocess\.run\(['\"]sudo",  # Prevent executing sudo commands
+    r"subprocess\.Popen\(['\"]rm",  # Prevent subprocess rm commands
+    r"os\.system\(['\"]rm",  # Prevent os.system rm calls
+]
 
 app = FastAPI()
 
@@ -111,10 +126,16 @@ def execute_python_script(script: str) -> str:
     print("Generated Python script:\n", script)
 
     # Validate that the script only imports safe libraries
+    # Check for unsafe imports
     unsafe_imports = re.findall(r"import\s+([a-zA-Z0-9_]+)", script)
     for lib in unsafe_imports:
         if lib not in SAFE_LIBRARIES:
             raise HTTPException(status_code=400, detail=f"Unsafe library used: {lib}")
+
+    # Check for unsafe file operations
+    for pattern in UNSAFE_PATTERNS:
+        if re.search(pattern, script):
+            raise HTTPException(status_code=400, detail=f"Unsafe operation detected: {pattern}")
 
     # Redirect stdout to capture print output
     old_stdout = sys.stdout
