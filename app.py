@@ -101,6 +101,44 @@ def generate_python_script(task: str) -> str:
                 - **Verify extracted/generated data where applicable before saving**.
                 - **Log meaningful errors if something goes wrong**.
 
+                ### **Task-Specific Guidelines:**
+                        - **🔹 API Requests (`requests`)**
+                        - Fetch data from a specified API.
+                        - Save results as JSON or CSV inside `./data/`.
+
+                        - **🔹 Git Operations (`gitpython`)**
+                        - Clone a repository, modify files, and commit changes.
+                        - Handle authentication securely.
+
+                        - **🔹 SQL Queries (`sqlite3`, `duckdb`)**
+                        - Connect to SQLite/DuckDB, run queries, and return results.
+                        - Ensure the database exists before executing queries.
+
+                        - **🔹 Web Scraping (`BeautifulSoup`, `requests`, `selenium`)**
+                        - Extract structured data from a website.
+                        - Respect `robots.txt` and avoid excessive requests.
+
+                        - **🔹 Image Processing (`PIL`, `cv2`)**
+                        - Resize or compress images while maintaining quality.
+                        - Save images in `./data/`.
+
+                        - **🔹 Audio Transcription (`whisper`, `speech_recognition`)**
+                        - Convert MP3 files to text using an appropriate library.
+                        - Save transcriptions inside `./data/`.
+
+                        - **🔹 Markdown to HTML (`markdown`)**
+                        - Convert `.md` files to HTML and save the output.
+                        - Ensure proper formatting and links.
+
+                        - **🔹 CSV Filtering API (`pandas`, `flask`, `fastapi`)**
+                        - Read a CSV file, filter based on conditions, and return JSON.
+                        - Ensure efficient handling of large datasets.
+
+                        ### **Execution & Output Handling:**
+                        - **All outputs must be stored in `./data/` unless specified otherwise.**
+                        - **Ensure scripts validate inputs, handle errors, and log issues.**
+                        - **Use lightweight, efficient libraries where possible.**
+                        - **DO NOT execute destructive operations (e.g., `rm -rf`, database deletions).**
                 ### **Task Definition:**
                 "{task}"
                 """
